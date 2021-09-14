@@ -359,12 +359,12 @@ RCT_EXPORT_METHOD(showMissedCallNotification:
                 CXStartCallAction *startCallAction = [transaction.actions firstObject];
                 CXCallUpdate *callUpdate = [[CXCallUpdate alloc] init];
                 callUpdate.remoteHandle = startCallAction.handle;
-                callUpdate.hasVideo = startCallAction.video;
+                callUpdate.hasVideo = YES;
                 callUpdate.localizedCallerName = startCallAction.contactIdentifier;
-                callUpdate.supportsDTMF = YES;
-                callUpdate.supportsHolding = YES;
-                callUpdate.supportsGrouping = YES;
-                callUpdate.supportsUngrouping = YES;
+                callUpdate.supportsDTMF = NO;
+                callUpdate.supportsHolding = NO;
+                callUpdate.supportsGrouping = NO;
+                callUpdate.supportsUngrouping = NO;
                 [self.callKeepProvider reportCallWithUUID:startCallAction.callUUID updated:callUpdate];
             }
         }
@@ -458,17 +458,15 @@ RCT_EXPORT_METHOD(showMissedCallNotification:
         [RNVoipCall callEndTimeout:uuidString];
     });
     
-    
-    
     int _handleType = [RNVoipCall getHandleType:handleType];
     NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
     CXCallUpdate *callUpdate = [[CXCallUpdate alloc] init];
     callUpdate.remoteHandle = [[CXHandle alloc] initWithType:_handleType value:handle];
-    callUpdate.supportsDTMF = YES;
-    callUpdate.supportsHolding = YES;
-    callUpdate.supportsGrouping = YES;
-    callUpdate.supportsUngrouping = YES;
-    callUpdate.hasVideo = hasVideo;
+    callUpdate.supportsDTMF = NO;
+    callUpdate.supportsHolding = NO;
+    callUpdate.supportsGrouping = NO;
+    callUpdate.supportsUngrouping = NO;
+    callUpdate.hasVideo = YES;
     callUpdate.localizedCallerName = localizedCallerName;
 
     [RNVoipCall initCallKitProvider];
@@ -764,6 +762,14 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
     callAttended = TRUE;
     [self configureAudioSession];
     [self sendEventWithName:RNVoipCallPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+    // dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    //    [self sendEventWithName:RNVoipCallPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+    // });
+    // dispatch_async(dispatch_get_main_queue(), ^{
+    //     if(![[UIApplication sharedApplication] isProtectedDataAvailable]){
+    //         [RNVoipCall sendMissedCallNotification:@"Bạn vui lòng mở khoá." body:@"Để tiếp tục cuộc gọi với bác sĩ."];
+    //     }
+    // });
     [action fulfill];
 }
 
