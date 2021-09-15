@@ -454,9 +454,9 @@ RCT_EXPORT_METHOD(showMissedCallNotification:
     callerId = uuidString;
    
 
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 60000 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-        [RNVoipCall callEndTimeout:uuidString];
-    });
+    // dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 60000 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        // [RNVoipCall callEndTimeout:uuidString];
+    // });
     
     
     
@@ -763,7 +763,15 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
 #endif
     callAttended = TRUE;
     [self configureAudioSession];
-    [self sendEventWithName:RNVoipCallPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+//    [self sendEventWithName:RNVoipCallPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self sendEventWithName:RNVoipCallPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+     });
+    // dispatch_async(dispatch_get_main_queue(), ^{
+    //     if(![[UIApplication sharedApplication] isProtectedDataAvailable]){
+    //         [RNVoipCall sendMissedCallNotification:@"Bạn vui lòng mở khoá." body:@"Để tiếp tục cuộc gọi với bác sĩ."];
+    //     }
+    // });
     [action fulfill];
 }
 
@@ -842,6 +850,10 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
     NSLog(@"[RNVoipCall][CXProviderDelegate][provider:didDeactivateAudioSession]");
 #endif
     [self sendEventWithName:RNVoipCallDidDeactivateAudioSession body:nil];
+}
+
++ (NSString *) currentCallId{
+    return callerId;
 }
 
 @end

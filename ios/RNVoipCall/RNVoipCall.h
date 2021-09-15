@@ -48,5 +48,7 @@ continueUserActivity:(NSUserActivity *)userActivity
                               uuid:(NSString *)uuid;
 
 + (void)setup:(NSDictionary *)options;
++ (NSString *) currentCallId;
++ (void) callEndTimeout: (NSString *) uuidString;
 
 @end
