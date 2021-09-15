@@ -40,17 +40,23 @@ public class RNVoipNotificationHelper {
     }
 
 
-    public void sendCallNotification(ReadableMap jsonObject){
-        if(jsonObject.getBoolean("ringtuneSound") == true){
-            RNVoipRingtunePlayer.getInstance(context).playMusic(jsonObject);
-        }
-        sendNotification(jsonObject);
+    public void sendCallNotification(final ReadableMap jsonObject){
+        clearAllNorifications();
+        RNVoipRingtunePlayer.getInstance(context).stopMusic();
+        new android.os.Handler().postDelayed(
+                new Runnable() {
+                    public void run() {
+                        if(jsonObject.getBoolean("ringtuneSound") == true){
+                            RNVoipRingtunePlayer.getInstance(context).playMusic(jsonObject);
+                        }
+                        sendNotification(jsonObject);
+                    }
+                }, 1000);
     }
 
 
     public void sendNotification(ReadableMap json){
         int notificationID = json.getInt("notificationId");
-
         Intent dissmissIntent = new Intent(context, RNVoipBroadcastReciever.class);
         dissmissIntent.setAction("callDismiss");
         dissmissIntent.putExtra("notificationId",notificationID);
@@ -74,6 +80,7 @@ public class RNVoipNotificationHelper {
                 .setPriority(Notification.PRIORITY_MAX)
                 .setContentTitle(json.getString("notificationTitle"))
                 .setSound(sounduri)
+                .setWhen(System.currentTimeMillis() + 1500)
                 .setContentText(json.getString("notificationBody"))
                 .addAction(0, json.getString("answerActionTitle"), getPendingIntent(notificationID, "callAnswer",json))
                 .addAction(0, json.getString("declineActionTitle"), callDismissIntent)
