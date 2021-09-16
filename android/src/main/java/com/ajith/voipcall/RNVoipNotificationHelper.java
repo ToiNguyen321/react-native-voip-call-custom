@@ -2,6 +2,7 @@ package com.ajith.voipcall;
 
 import android.app.AlarmManager;
 import android.app.Application;
+import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -30,7 +31,7 @@ public class RNVoipNotificationHelper {
     private Context context;
     private Handler mHandler;
     private Runnable mRunnable;
-
+    final int notificationID = 9999;//json.getInt("notificationId");
     public RNVoipNotificationHelper(Application context){
         this.context = context;
         sInstance = this;
@@ -54,26 +55,26 @@ public class RNVoipNotificationHelper {
 
 
     public void sendCallNotification(final ReadableMap jsonObject){
-        // Param is optional, to run task on UI thread.
-        mHandler = new Handler(this.context.getMainLooper());
-        mRunnable = new Runnable() {
-            private int counter = 0;
-            @Override
-            public void run() {
-                if(counter >= 10){
-                    clearNotificationRepeat();
-                    return;
+            // Param is optional, to run task on UI thread.
+            mHandler = new Handler(this.context.getMainLooper());
+            mRunnable = new Runnable() {
+                private int counter = 0;
+                @Override
+                public void run() {
+                    if(counter >= 10){
+                        clearNotificationRepeat();
+                        return;
+                    }
+                    counter += 1;
+                    sendNotification(jsonObject);
+                    if(mHandler != null){
+                        mHandler.postDelayed(this, 6000);
+                    }else{
+                        clearAllNotifications();
+                    }
                 }
-                counter += 1;
-                sendNotification(jsonObject);
-                if(mHandler != null){
-                    mHandler.postDelayed(this, 6000);
-                }else{
-                    clearAllNotifications();
-                }
-            }
-        };
-        mHandler.postDelayed(mRunnable, 0);
+            };
+            mHandler.postDelayed(mRunnable, 0);
     }
 
     public void clearNotificationRepeat(){
@@ -87,7 +88,6 @@ public class RNVoipNotificationHelper {
 
 
     public void sendNotification(ReadableMap json){
-        int notificationID = 9999;//json.getInt("notificationId");
         Intent dissmissIntent = new Intent(context, RNVoipBroadcastReciever.class);
         dissmissIntent.setAction("callDismiss");
         dissmissIntent.putExtra("notificationId",notificationID);
@@ -121,6 +121,13 @@ public class RNVoipNotificationHelper {
         NotificationManager notificationManager = notificationManager();
         createCallNotificationChannel(notificationManager, json);
         notificationManager.notify(notificationID,notification);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            new Handler().postDelayed(new Runnable() {
+                public void run() {
+                    clearNotification(notificationID);
+                }
+            },5000);
+        }
     }
 
 
@@ -140,10 +147,15 @@ public class RNVoipNotificationHelper {
         }
     }
 
+    public boolean isDeviceLocked(Context context){
+        KeyguardManager myKM = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
+        return myKM.inKeyguardRestrictedInputMode();
+    }
 
     public PendingIntent getPendingIntent(int notificationID , String type, ReadableMap json){
+
         Class intentClass = getMainActivityClass();
-        Intent intent = new Intent(context, intentClass);
+        Intent intent = new Intent(context, isDeviceLocked(this.context)? RNVoipBroadcastReciever.class:intentClass);
         intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         intent.putExtra("notificationId",notificationID);
         intent.putExtra("callerId", json.getString("callerId"));
