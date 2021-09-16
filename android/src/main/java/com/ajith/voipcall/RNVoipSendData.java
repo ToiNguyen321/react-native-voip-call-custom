@@ -33,13 +33,10 @@ public class RNVoipSendData {
 
             switch (action) {
                 case "callAnswer":
-                    promise.resolve(params);
-                    break;
+                case "contentTap":
                 case "fullScreenIntent":
                     promise.resolve(params);
-                    break;
-                case "contentTap":
-                    promise.resolve(params);
+                    RNVoipNotificationHelper.getInstance().clearNotificationRepeat();
                     break;
                 case "missedCallTape":
                     promise.resolve(params);
@@ -55,6 +52,8 @@ public class RNVoipSendData {
 
     public  void sentEventToJsModule(Intent intent){
         try{
+//            RNVoipRingtunePlayer.getInstance(mReactContext).stopMusic();
+            RNVoipNotificationHelper.getInstance().clearNotificationRepeat();
             String action = intent.getAction();
             WritableMap params = Arguments.createMap();
             params.putString("action",action);

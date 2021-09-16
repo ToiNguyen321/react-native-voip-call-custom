@@ -60,7 +60,7 @@ public class RNVoipCallModule extends ReactContextBaseJavaModule implements Acti
 
   @ReactMethod
   public void clearAllNotifications(){
-    rnVoipNotificationHelper.clearAllNorifications();
+    RNVoipNotificationHelper.getInstance().clearNotificationRepeat();
   }
 
 
@@ -74,12 +74,12 @@ public class RNVoipCallModule extends ReactContextBaseJavaModule implements Acti
 
   @ReactMethod
   public void playRingtune(String fileName, Boolean isLooping){
-    RNVoipRingtunePlayer.getInstance(reactContext).playRingtune(fileName, isLooping);
+//    RNVoipRingtunePlayer.getInstance(reactContext).playRingtune(fileName, isLooping);
   }
 
   @ReactMethod
   public void  stopRingtune(){
-    RNVoipRingtunePlayer.getInstance(reactContext).stopMusic();
+//    RNVoipRingtunePlayer.getInstance(reactContext).stopMusic();
   }
 
 
