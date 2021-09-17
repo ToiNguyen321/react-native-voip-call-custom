@@ -50,5 +50,6 @@ continueUserActivity:(NSUserActivity *)userActivity
 + (void)setup:(NSDictionary *)options;
 + (NSString *) currentCallId;
 + (void) callEndTimeout: (NSString *) uuidString;
++ (void) sendDeviceUnlockedNotification: (NSString *)title body: (NSString *)body;
 
 @end

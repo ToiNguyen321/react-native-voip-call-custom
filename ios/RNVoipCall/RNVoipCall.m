@@ -213,10 +213,14 @@ RCT_EXPORT_METHOD(endAllCalls)
 #ifdef DEBUG
     NSLog(@"[RNVoipCall][endAllCalls] calls = %@", self.callKeepCallController.callObserver.calls);
 #endif
-    for (CXCall *call in self.callKeepCallController.callObserver.calls) {
-        CXEndCallAction *endCallAction = [[CXEndCallAction alloc] initWithCallUUID:call.UUID];
-        CXTransaction *transaction = [[CXTransaction alloc] initWithAction:endCallAction];
-        [self requestTransaction:transaction];
+    @try {
+        for (CXCall *call in self.callKeepCallController.callObserver.calls) {
+            CXEndCallAction *endCallAction = [[CXEndCallAction alloc] initWithCallUUID:call.UUID];
+            CXTransaction *transaction = [[CXTransaction alloc] initWithAction:endCallAction];
+            [self requestTransaction:transaction];
+        }
+    }@catch (NSException *exception) {
+        NSLog(@"[RNVoipCall][endAllCalls] error %@", exception);
     }
 }
 
@@ -332,6 +336,26 @@ RCT_EXPORT_METHOD(showMissedCallNotification:
         UNTimeIntervalNotificationTrigger* trigger = [UNTimeIntervalNotificationTrigger
                                                       triggerWithTimeInterval:2 repeats:NO];
         UNNotificationRequest* request = [UNNotificationRequest requestWithIdentifier:@"FiveSecond"
+                                                                              content:content trigger:trigger];
+        
+        [center addNotificationRequest:request withCompletionHandler:nil];
+        
+    }
+}
+
++ (void) sendDeviceUnlockedNotification: (NSString *)title body: (NSString *)body
+{
+    if (@available(iOS 10.0, *)) {
+        UNUserNotificationCenter* center = [UNUserNotificationCenter currentNotificationCenter];
+        UNMutableNotificationContent* content = [[UNMutableNotificationContent alloc] init];
+        content.title = title;
+        content.body = body;
+        content.sound = [UNNotificationSound defaultSound];
+        content.categoryIdentifier = @"unlock_device";
+        
+        UNTimeIntervalNotificationTrigger* trigger = [UNTimeIntervalNotificationTrigger
+                                                      triggerWithTimeInterval:2 repeats:NO];
+        UNNotificationRequest* request = [UNNotificationRequest requestWithIdentifier:@"VIDEO_CALL_NOTI"
                                                                               content:content trigger:trigger];
         
         [center addNotificationRequest:request withCompletionHandler:nil];
@@ -468,7 +492,12 @@ RCT_EXPORT_METHOD(showMissedCallNotification:
     callUpdate.supportsUngrouping = NO;
     callUpdate.hasVideo = YES;
     callUpdate.localizedCallerName = localizedCallerName;
-
+    // if(uuid == nil){
+    //     uuid = [NSUUID UUID];
+    //      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2000 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+    //          [RNVoipCall endCallWithUUID:[[uuid UUIDString] lowercaseString] reason:6];
+    //      });
+    // }
     [RNVoipCall initCallKitProvider];
     [sharedProvider reportNewIncomingCallWithUUID:uuid update:callUpdate completion:^(NSError * _Nullable error) {
         RNVoipCall *callKeep = [RNVoipCall allocWithZone: nil];
@@ -765,11 +794,9 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self sendEventWithName:RNVoipCallPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
      });
-    // dispatch_async(dispatch_get_main_queue(), ^{
-    //     if(![[UIApplication sharedApplication] isProtectedDataAvailable]){
-    //         [RNVoipCall sendMissedCallNotification:@"Bạn vui lòng mở khoá." body:@"Để tiếp tục cuộc gọi với bác sĩ."];
-    //     }
-    // });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"RNVoipCallPerformAnswerCallAction" object:nil userInfo:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+    });
     [action fulfill];
 }
 
@@ -788,6 +815,9 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
     callAttended = FALSE;
     
     [self sendEventWithName:RNVoipCallPerformEndCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"RNVoipCallPerformEndCallAction" object:nil userInfo:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+    });
     [action fulfill];
 }
 
