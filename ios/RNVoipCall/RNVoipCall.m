@@ -492,12 +492,10 @@ RCT_EXPORT_METHOD(showMissedCallNotification:
     callUpdate.supportsUngrouping = NO;
     callUpdate.hasVideo = YES;
     callUpdate.localizedCallerName = localizedCallerName;
-    // if(uuid == nil){
-    //     uuid = [NSUUID UUID];
-    //      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2000 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-    //          [RNVoipCall endCallWithUUID:[[uuid UUIDString] lowercaseString] reason:6];
-    //      });
-    // }
+     if(uuid == nil){
+         uuid = [NSUUID UUID];
+         [[NSNotificationCenter defaultCenter] postNotificationName:@"RNVoipCallUpdateUUID" object:nil userInfo:@{ @"callUUID": [uuid.UUIDString lowercaseString] , @"payload":payload }];
+     }
     [RNVoipCall initCallKitProvider];
     [sharedProvider reportNewIncomingCallWithUUID:uuid update:callUpdate completion:^(NSError * _Nullable error) {
         RNVoipCall *callKeep = [RNVoipCall allocWithZone: nil];
