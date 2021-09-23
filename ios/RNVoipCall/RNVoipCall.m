@@ -46,6 +46,7 @@ NSString *callerName;
 BOOL callAttended = FALSE;
 NSString *callerId;
 NSTimer *timer;
+NSDictionary * _payload;
 
 static CXProvider* sharedProvider;
 static bool isSetupNatively;
@@ -74,6 +75,7 @@ RCT_EXPORT_MODULE()
 }
 
 + (void)setup:(NSDictionary *)options {
+    NSLog(@"[RNVoipCall][setup]");
     RNVoipCall *call = [RNVoipCall allocWithZone: nil];
     [call initialize:options];
     isSetupNatively = YES;
@@ -81,15 +83,14 @@ RCT_EXPORT_MODULE()
 
 - (void)dealloc
 {
-#ifdef DEBUG
     NSLog(@"[RNVoipCall][dealloc]");
-#endif
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 
     if (self.callKeepProvider != nil) {
         [self.callKeepProvider invalidate];
     }
     sharedProvider = nil;
+    _payload = nil;
 }
 
 // Override method of RCTEventEmitter
@@ -112,6 +113,7 @@ RCT_EXPORT_MODULE()
 
 + (void)initCallKitProvider {
     if (sharedProvider == nil) {
+        NSLog(@"[RNCallKeep][setup] sharedProvider nil");
         NSDictionary *settings = [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"RNVoipCallSettings"];
         sharedProvider = [[CXProvider alloc] initWithConfiguration:[RNVoipCall getProviderConfiguration:settings]];
     }
@@ -120,17 +122,14 @@ RCT_EXPORT_MODULE()
 RCT_EXPORT_METHOD(initialize:(NSDictionary *)options)
 {
     if (isSetupNatively) {
-    #ifdef DEBUG
             NSLog(@"[RNCallKeep][setup] already setup");
-            RCTLog(@"[RNCallKeep][setup] already setup in native code");
-    #endif
+            NSLog(@"[RNCallKeep][setup] already setup in native code");
             return;
         }
-#ifdef DEBUG
     NSLog(@"[RNVoipCall][initialize] options = %@", options);
-#endif
     _version = [[[NSProcessInfo alloc] init] operatingSystemVersion];
     self.callKeepCallController = [[CXCallController alloc] init];
+    NSLog(@"[RNVoipCall][initialize] callKeepCallController init");
     NSDictionary *settings = [[NSMutableDictionary alloc] initWithDictionary:options];
     // Store settings in NSUserDefault
     [[NSUserDefaults standardUserDefaults] setObject:settings forKey:@"RNVoipCallSettings"];
@@ -198,29 +197,25 @@ RCT_EXPORT_METHOD(startCall:(NSString *)uuidString
 
 RCT_EXPORT_METHOD(endCall:(NSString *)uuidString)
 {
-#ifdef DEBUG
     NSLog(@"[RNVoipCall][endCall] uuidString = %@", uuidString);
-#endif
     NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
     CXEndCallAction *endCallAction = [[CXEndCallAction alloc] initWithCallUUID:uuid];
     CXTransaction *transaction = [[CXTransaction alloc] initWithAction:endCallAction];
-
     [self requestTransaction:transaction];
 }
 
 RCT_EXPORT_METHOD(endAllCalls)
 {
-#ifdef DEBUG
     NSLog(@"[RNVoipCall][endAllCalls] calls = %@", self.callKeepCallController.callObserver.calls);
-#endif
     @try {
         for (CXCall *call in self.callKeepCallController.callObserver.calls) {
+            NSLog(@"[RNVoipCall][endAllCalls] UUID %@", [call.UUID UUIDString]);
             CXEndCallAction *endCallAction = [[CXEndCallAction alloc] initWithCallUUID:call.UUID];
             CXTransaction *transaction = [[CXTransaction alloc] initWithAction:endCallAction];
             [self requestTransaction:transaction];
         }
     }@catch (NSException *exception) {
-        NSLog(@"[RNVoipCall][endAllCalls] error %@", exception);
+        NSLog(@"[RNVoipCall][endAllCalls] error %@", exception.description);
     }
 }
 
@@ -366,33 +361,36 @@ RCT_EXPORT_METHOD(showMissedCallNotification:
 
 - (void)requestTransaction:(CXTransaction *)transaction
 {
-#ifdef DEBUG
     NSLog(@"[RNVoipCall][requestTransaction] transaction = %@", transaction);
-#endif
-    if (self.callKeepCallController == nil) {
-        self.callKeepCallController = [[CXCallController alloc] init];
-    }
-    [self.callKeepCallController requestTransaction:transaction completion:^(NSError * _Nullable error) {
-        if (error != nil) {
-            NSLog(@"[RNVoipCall][requestTransaction] Error requesting transaction (%@): (%@)", transaction.actions, error);
-        } else {
-            NSLog(@"[RNVoipCall][requestTransaction] Requested transaction successfully");
-
-            // CXStartCallAction
-            if ([[transaction.actions firstObject] isKindOfClass:[CXStartCallAction class]]) {
-                CXStartCallAction *startCallAction = [transaction.actions firstObject];
-                CXCallUpdate *callUpdate = [[CXCallUpdate alloc] init];
-                callUpdate.remoteHandle = startCallAction.handle;
-                callUpdate.hasVideo = YES;
-                callUpdate.localizedCallerName = startCallAction.contactIdentifier;
-                callUpdate.supportsDTMF = NO;
-                callUpdate.supportsHolding = NO;
-                callUpdate.supportsGrouping = NO;
-                callUpdate.supportsUngrouping = NO;
-                [self.callKeepProvider reportCallWithUUID:startCallAction.callUUID updated:callUpdate];
-            }
+    @try {
+        if (self.callKeepCallController == nil) {
+            NSLog(@"[RNVoipCall][requestTransaction] callKeepCallController nil");
+            self.callKeepCallController = [[CXCallController alloc] init];
         }
-    }];
+        [self.callKeepCallController requestTransaction:transaction completion:^(NSError * _Nullable error) {
+            if (error != nil) {
+                NSLog(@"[RNVoipCall][requestTransaction] Error requesting transaction (%@): (%@)", transaction.actions, error);
+            } else {
+                NSLog(@"[RNVoipCall][requestTransaction] Requested transaction successfully");
+                // CXStartCallAction
+                if ([[transaction.actions firstObject] isKindOfClass:[CXStartCallAction class]]) {
+                    NSLog(@"[RNVoipCall][requestTransaction] CXStartCallAction");
+                    CXStartCallAction *startCallAction = [transaction.actions firstObject];
+                    CXCallUpdate *callUpdate = [[CXCallUpdate alloc] init];
+                    callUpdate.remoteHandle = startCallAction.handle;
+                    callUpdate.hasVideo = YES;
+                    callUpdate.localizedCallerName = startCallAction.contactIdentifier;
+                    callUpdate.supportsDTMF = NO;
+                    callUpdate.supportsHolding = NO;
+                    callUpdate.supportsGrouping = NO;
+                    callUpdate.supportsUngrouping = NO;
+                    [self.callKeepProvider reportCallWithUUID:startCallAction.callUUID updated:callUpdate];
+                }
+            }
+        }];
+    } @catch (NSException *exception) {
+        NSLog(@"[RNVoipCall][requestTransaction] NSException requestTransaction => %@", exception.description);
+    }
 }
 
 + (BOOL)isCallActive:(NSString *)uuidString
@@ -424,6 +422,9 @@ RCT_EXPORT_METHOD(showMissedCallNotification:
     NSLog(@"[RNVoipCall][reportEndCallWithUUID] uuidString = %@ reason = %d", uuidString, reason);
 #endif
     NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+    if(uuid == nil){
+        return;
+    }
     switch (reason) {
         case 1:
             [sharedProvider reportCallWithUUID:uuid endedAtDate:[NSDate date] reason:CXCallEndedReasonFailed];
@@ -471,17 +472,14 @@ RCT_EXPORT_METHOD(showMissedCallNotification:
                       payload:(NSDictionary * _Nullable)payload
         withCompletionHandler:(void (^_Nullable)(void))completion
 {
-#ifdef DEBUG
     NSLog(@"[RNVoipCall][reportNewIncomingCall] uuidString = %@", uuidString);
-#endif
     callerName = [localizedCallerName stringByReplacingOccurrencesOfString:@"is Calling" withString:@" "];
-    callerId = uuidString;
    
 
     // dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 60000 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
         // [RNVoipCall callEndTimeout:uuidString];
     // });
-    
+    _payload = payload;
     int _handleType = [RNVoipCall getHandleType:handleType];
     NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
     CXCallUpdate *callUpdate = [[CXCallUpdate alloc] init];
@@ -494,9 +492,12 @@ RCT_EXPORT_METHOD(showMissedCallNotification:
     callUpdate.localizedCallerName = localizedCallerName;
      if(uuid == nil){
          uuid = [NSUUID UUID];
-         dispatch_async(dispatch_get_main_queue(), ^{
-             [[NSNotificationCenter defaultCenter] postNotificationName:@"RNVoipCallUpdateUUID" object:nil userInfo:@{ @"callUUID": [uuid.UUIDString lowercaseString] , @"payload":payload }];
-         });
+         callerId = [uuid.UUIDString lowercaseString];
+//         dispatch_async(dispatch_get_main_queue(), ^{
+//             [[NSNotificationCenter defaultCenter] postNotificationName:@"RNVoipCallUpdateUUID" object:nil userInfo:@{ @"callUUID": [uuid.UUIDString lowercaseString] , @"payload":payload }];
+//         });
+     }else{
+         callerId = uuidString;
      }
     [RNVoipCall initCallKitProvider];
     [sharedProvider reportNewIncomingCallWithUUID:uuid update:callUpdate completion:^(NSError * _Nullable error) {
@@ -791,8 +792,22 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
     callAttended = TRUE;
     [self configureAudioSession];
 //    [self sendEventWithName:RNVoipCallPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+    NSString *jsonString = @"";
+    if(_payload != nil){
+        @try {
+            NSError *error;
+            NSData *jsonData = [NSJSONSerialization dataWithJSONObject:_payload
+                                                               options:NSJSONWritingPrettyPrinted
+                                                                 error:&error];
+            if (! jsonData) {
+                NSLog(@"Got an error: %@", error);
+            } else {
+                jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+            }
+        } @catch (NSException *exception) {}
+    }
      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [self sendEventWithName:RNVoipCallPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+         [self sendEventWithName:RNVoipCallPerformAnswerCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] , @"payload":jsonString }];
      });
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:@"RNVoipCallPerformAnswerCallAction" object:nil userInfo:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
@@ -803,9 +818,7 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
 // Ending incoming call
 - (void)provider:(CXProvider *)provider performEndCallAction:(CXEndCallAction *)action
 {
-#ifdef DEBUG
     NSLog(@"[RNVoipCall][CXProviderDelegate][provider:performEndCallAction]%@", action);
-#endif
     
 //    if(!callAttended){
 //        [RNVoipCall sendMissedCallNotification:callerName body:[@"You Have Missed Call from " stringByAppendingString:callerName]];
@@ -817,6 +830,7 @@ RCT_EXPORT_METHOD(reportUpdatedCall:(NSString *)uuidString contactIdentifier:(NS
     [self sendEventWithName:RNVoipCallPerformEndCallAction body:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:@"RNVoipCallPerformEndCallAction" object:nil userInfo:@{ @"callUUID": [action.callUUID.UUIDString lowercaseString] }];
+        _payload = nil;
     });
     [action fulfill];
 }
